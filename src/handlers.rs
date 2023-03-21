@@ -5,12 +5,11 @@ use axum::{
   http::Response, 
   extract::{WebSocketUpgrade, State}};
 
-use crate::state::AppState;
+use crate::state::{AppState, realtime_draw_stream};
 
 pub struct Handlers {
   
 }
-
 
 impl Handlers {
   pub async fn get_root() -> impl IntoResponse {
@@ -38,6 +37,6 @@ impl Handlers {
   }
 
   pub async fn get_realtime_stream(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    ws.on_upgrade(|ws| AppState::realtime_draw_stream(state, ws))
+    ws.on_upgrade(move |ws| realtime_draw_stream(state, ws))
   }
 }

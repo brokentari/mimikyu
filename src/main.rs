@@ -4,20 +4,15 @@ use axum::{
     routing::get,
     Router, Server,
 };
-use futures::lock::Mutex;
-use tokio::sync::broadcast;
 use tower_http::services::ServeFile;
-use crate::{handlers::Handlers, state::{AppState, Board}};
-//hi!
+use crate::{handlers::Handlers, state::{AppState}};
+
 pub mod handlers;
 pub mod state;
 
 #[tokio::main]
 async fn main() {
-    let board = Mutex::new(vec![vec![0 as u32; 32]; 16]);
-    let (tx, _rx) = broadcast::channel::<Board>(10);
-
-    let app_state = Arc::new(AppState { board, tx });
+    let app_state = Arc::new(AppState::new());
 
     let router = Router::new()
         .nest_service("/images/favicon.ico", ServeFile::new("src/frontend/favicon.ico"))
@@ -26,6 +21,7 @@ async fn main() {
         .route("/index.css", get(Handlers::get_css))
         .route("/realtime/draw", get(Handlers::get_realtime_stream))
         .with_state(app_state);
+
 
     let server = Server::bind(&"0.0.0.0:7032".parse().unwrap()).serve(router.into_make_service());
     let local_addr = server.local_addr();
