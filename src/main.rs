@@ -1,11 +1,10 @@
-use std::{sync::Arc};
-
+use std::sync::Arc;
 use axum::{
     routing::get,
     Router, Server,
 };
 use tower_http::services::ServeFile;
-use crate::{handlers::Handlers, state::{AppState}};
+use crate::{handlers::Handlers, state::AppState};
 
 pub mod handlers;
 pub mod state;

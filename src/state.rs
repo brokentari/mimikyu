@@ -1,8 +1,8 @@
 
 use axum::extract::ws::{WebSocket, Message};
 use futures::{lock::Mutex, stream::{StreamExt, SplitSink, SplitStream}, SinkExt};
-use tokio::{sync::broadcast};
-use std::{sync::Arc};
+use tokio::sync::broadcast;
+use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -58,7 +58,7 @@ fn spawn_send_task(mut sender: SplitSink<WebSocket, Message>, mut rx: broadcast:
 }
 
 fn spawn_recv_task(mut receiver: SplitStream<WebSocket>, state: Arc<AppState>)  -> tokio::task::JoinHandle<()> {
-    
+    let tx = state.tx.clone();
     tokio::spawn(async move {
         // we receive messages from the client
         while let Some(Ok(message)) = receiver.next().await {
@@ -69,7 +69,7 @@ fn spawn_recv_task(mut receiver: SplitStream<WebSocket>, state: Arc<AppState>)  
                         process_message(&state, message);
                         
                         // broadcast the  new board to other subcribers
-                        let _ = state.tx.send(state.board.try_lock().unwrap().clone());
+                        let _ = tx.send(state.board.try_lock().unwrap().clone());
                     }
                     Err(_) => {
                         println!(">>> Client sent another type of message {:?}", t);
@@ -99,11 +99,17 @@ pub async fn realtime_draw_stream(state: Arc<AppState>, ws: WebSocket) {
     };
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
 
     pub fn new() -> AppState {
         let (tx, _) = broadcast::channel::<Board>(10);
-        AppState { board: Mutex::new(vec![vec![0 as u32; 32]; 16]) , tx }
+        AppState { board: Mutex::new(vec![vec![0_u32; 32]; 16]) , tx }
     }
 
     fn draw_pixel(&self, x: u8, y:u8, color: String) {

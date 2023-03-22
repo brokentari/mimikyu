@@ -1,4 +1,4 @@
-import {h, render, Component} from "https://unpkg.com/preact@latest?module";
+import { h, render, Component } from "https://unpkg.com/preact@latest?module";
 import htm from "https://unpkg.com/htm?module";
 import { useState, useEffect } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
 
@@ -15,11 +15,12 @@ url.protocol = url.protocol.replace("http", "ws");
 let ws = new WebSocket(url.href);
 ws.onopen = (ev) => {
   let initialPixels = Array(16).fill(0).map((_, _i) => Array(32).fill(0));
-   render(html`<${App} pixels=${initialPixels}></${App}>`, document.body);
+  render(html`<${App} pixels=${initialPixels}></${App}>`, document.body);
 }
 
 ws.onmessage = (ev) => {
   let json = JSON.parse(ev.data);
+  console.log('received data: ', json)
   render(html`<${App} pixels=${json}></${App}>`, document.body);
 };
 
@@ -30,6 +31,7 @@ class IroColorPicker extends Component {
     this.colorPicker = new iro.ColorPicker(this.el, props);
 
     this.colorPicker.on('color:change', (color) => {
+      console.log(color)
       if (props.onColorChange) props.onColorChange(color);
     });
   }
@@ -50,22 +52,24 @@ class IroColorPicker extends Component {
 }
 
 function GridTable(props) {
-
   return html`
     <table id=our_table>
       ${rows.map((i) => {
         return html`
           <tr>
             ${cols.map((j) => {
-              
-              if (props.pixels[i-1][j-1] == 1) {
+              if (props.pixels[i - 1][j - 1] != 0) {
+                let color = props.pixels[i-1][j-1] >>> 0;
+                let red = (color >> 16) & 0xFF;
+                let green = (color >> 8) & 0xFF;
+                let blue = color &0xFF;
                 return html`
-                  <td id=${i-1}-${j-1} class="highlighted" style="background-color: red" />
+                  <td id=${i - 1}-${j - 1} class="highlighted" style="background-color: rgb(${red},${green},${blue}" />
                 `;
               } else {
                 return html`
-                  <td id=${i-1}-${j-1}/>
-                `;
+                  <td id=${i - 1}-${j - 1}/>
+              `;
               }
             })}
           </tr>
@@ -76,6 +80,16 @@ function GridTable(props) {
 }
 
 
+function isRightClick(e) {
+  if (e.which) {
+    return (e.which == 3);
+  } else if (e.button) {
+    return (e.button == 2);
+  }
+
+  return false
+}
+
 function App(props) {
   const [currMode, setCurrMode] = useState('draw');
   const [isMouseDown, setIsMouseDown] = useState(false);
@@ -84,52 +98,55 @@ function App(props) {
 
   function onModeChange(e) {
     if (e.target.id == 'erase') {
-      setCurrColor('rgb(169,177,214)');
+      setCurrColor({rgbString: 'rbg(0, 0, 0)', hexString: '#000000'});
     }
 
     setCurrMode(e.target.id);
   }
 
   function onDocumentMouseUp(e) {
-    console.log('document mouse up');
+    if (isRightClick(e)) {
+      return false;
+    }
+
     setIsMouseDown(false);
+    document.documentElement.onselectstart = function () { return true;}
   }
 
 
   function onCellMouseDown(e) {
-    console.log('cell mouse down');
+    if (isRightClick(e)) {
+      return false;
+    }
+
     setIsMouseDown(true);
     onCellClick(e);
 
-    return false;
+    if (typeof e.preventDefault != "undefined") { e.preventDefault() }
+    document.documentElement.onselectstart = function () { return false }
+
   }
 
   function onCellMouseOver(e) {
-    console.log('cell mouse over');
     if (isMouseDown) {
       onCellClick(e);
     }
-    return false;
   }
 
   function onColorChange(c) {
-    console.log(c);
     setCurrColor(c);
   }
 
-  function onCellClick(e) {    
+  function onCellClick(e) {
     if (currMode == 'draw') {
       if (e.target.classList.contains("highlighted")) {
-        console.log('already highlighted');
         return;
       }
-      console.log(e);
       $(e.target).css('background-color', currColor.hexString);
       $(e.target).addClass("highlighted");
 
     } else if (currMode == 'erase') {
       if (!(e.target.classList.contains("highlighted"))) {
-        console.log('not highlighted');
         return;
       }
 
@@ -140,13 +157,13 @@ function App(props) {
     ws.send(JSON.stringify({
       mode: currMode.charAt(0).toUpperCase() + currMode.slice(1),
       x: parseInt(e.target.id.split('-')[0]),
-      y: parseInt(e.target.id.split('-')[1]), 
+      y: parseInt(e.target.id.split('-')[1]),
       color: currColor.rgbString.replaceAll(' ', '')
     }));
 
     return false;
   }
-  
+
 
   useEffect(() => {
     let cells = document.querySelectorAll('td');
@@ -157,7 +174,7 @@ function App(props) {
     });
     document.addEventListener("mouseup", onDocumentMouseUp);
 
-    
+
 
 
     return () => {
@@ -175,8 +192,8 @@ function App(props) {
     ws.send(JSON.stringify({
       mode: 'Clear',
       x: 0,
-      y: 0, 
-      color: c.rgbString.replaceAll(' ', '')
+      y: 0,
+      color: ''
     }));
   }
 
@@ -186,11 +203,11 @@ function App(props) {
       <p id=current-mode>Current mode: ${currMode}</p>
       <div id=mode-buttons>
         ${modes.map((mode) => {
-          return html`
+    return html`
             <button id=${mode} onclick=${onModeChange}>${mode}</button>
           `;
-        }
-        )}
+  }
+  )}
         <button id=clear-button onclick=${clearBoard}>clear</button>
       </div>
       <${IroColorPicker} onColorChange=${onColorChange} />
