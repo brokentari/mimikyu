@@ -17,3 +17,4 @@ tower-http = { version = "0.4.0", features = ["fs", "trace"] }
 rand = "0.8.5"
 futures = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+rpi-led-matrix = "0.4.0"

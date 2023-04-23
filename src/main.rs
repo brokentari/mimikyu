@@ -25,8 +25,21 @@ async fn main() {
     let server = Server::bind(&"0.0.0.0:7032".parse().unwrap()).serve(router.into_make_service());
     let local_addr = server.local_addr();
 
+    let graceful_server = server.with_graceful_shutdown(async {
+        tokio::signal::ctrl_c().await.expect("unable to install CTRL+C signal handler");
+    });
+
     println!("Listening on http://{}", local_addr);
 
-    server.await.unwrap();
+    if let Err(e) = graceful_server.await {
+        eprintln!("server error: {}", e);
+    }
+    
+    println!("\nexiting mimikyu server...");
+    let matrix_guard = state::get_matrix().lock().unwrap();
+    
+    matrix_guard.matrix.canvas().clear();
+
+    std::mem::drop(matrix_guard);
 }
 
